@@ -993,21 +993,109 @@ OSI安全框架主要关注安全服务、安全机制和安全攻击
 
     -   <img src="./assets/image-20221123170058519.png" alt="image-20221123170058519" style="zoom:33%;" />
 
+- IKE的载荷（13种）：ISAKMP定义了13种载荷，具有相同格式的载荷头  
+
+  - ![image-20221123190752977](D:\documents\NetWorkSaftyNotes\assets\image-20221123190752977.png)
+
+  - ![](D:\documents\NetWorkSaftyNotes\assets\image-20221123191934833.png)
+
+  - ![image-20221123191956371](D:\documents\NetWorkSaftyNotes\assets\image-20221123191956371.png)
+
+### IKE的体系结构
+
+- IKE使用了两个阶段的ISAKMP框架  
+- 第一阶段，协商创建一个通信信道（IKE SA），并对该信道进行
+  验证，为双方进一步的IKE通信提供机密性、消息完整性以及消
+  息源验证服务  
+  - 主模式： 6个消息交互  
+  - 快速模式： 3个消息交互  
+
+- 第二阶段，使用已建立的IKE SA建立IPsec SA  
+  - 快速模式： 3个消息交互  
+
+- ![image-20221123193742768](D:\documents\NetWorkSaftyNotes\assets\image-20221123193742768.png)
+
+### IKE的第一阶段：协商IKE SA
+
+- IKE在第一阶段中要协商建立IKE SA，建立一个经过验证的安全通道，为后续的协商提供机密性和完整性保护  
+  - 必须协商的内容包括：加密算法、哈希算法、认证(验证)方法、进行DH操作所使用组的有关信息等  
+
+- IKE第一阶段中可以使用主模式和积极模式，这两种模式只能在第一阶段中使用  
+  - 主模式提供了对通信双方的身份保护  
+  - 当身份保护不必要时，可以使用积极模式以减少信息传输的数量，提高协商效率  
+
+- 主模式概览：![image-20221123194224534](D:\documents\NetWorkSaftyNotes\assets\image-20221123194224534.png)
+
+- 主模式SA交换：
+
+  - ![image-20221123202553362](D:\documents\NetWorkSaftyNotes\assets\image-20221123202553362.png)
+
+  - ![image-20221123202611086](D:\documents\NetWorkSaftyNotes\assets\image-20221123202611086.png)
+
+  - ![image-20221123203204521](D:\documents\NetWorkSaftyNotes\assets\image-20221123203204521.png)
+
+- 快速模式概览：
+
+  - IKE为什么需要快速模式：  
+    - 适用于一方地址为动态的情况，主模式不能够应用于IP地址变化
+      的情况  
+    - 快速模式传输的消息更少，效率更高    
+
+  - ![image-20221123203508443](D:\documents\NetWorkSaftyNotes\assets\image-20221123203508443.png)
+
+  - ![image-20221123203652170](D:\documents\NetWorkSaftyNotes\assets\image-20221123203652170.png)
+
+  - ![image-20221123203708238](D:\documents\NetWorkSaftyNotes\assets\image-20221123203708238.png)
+
+  - ![image-20221123203828668](D:\documents\NetWorkSaftyNotes\assets\image-20221123203828668.png)
+
+### IKE的第二阶段：建立IPsec SA  
+
+- 一个IKE SA协商（第一阶段）可为多个IPsec SA协商（第二阶段）提供服务  
+- 第二阶段协商的内容与所协商的安全协议等相关，例如：IPsec AH 协议需要协商认证算法， IPsec ESP 协议需要协商认证和加密算法  
+- 第二阶段中使用快速模式进行信息交换，一个第二阶段协商可以建立
+  多个安全关联  
+
+- 需要协商的参数  ：
+  - 加密算法：包括DES、 IDEA、 Blowfish、 3DES、 CAST等  
+  - 哈希算法：包括MD5、 SHA、 Tiger等  
+  - 验证方法：包括共享密钥、 RSA签名、 DSS签名、 RSA加密、 RSA加密等 
+  - DH组  
+  - 存活周期类型及长度：包括秒、千字节等 
+  - 密钥长度   
+
+### IKE的工作模式
+
+- ![image-20221123204516999](D:\documents\NetWorkSaftyNotes\assets\image-20221123204516999.png)
+
+- IKE在协议实现上，是以守护进程的方式在后台运行  
+- 两个守护进程通过UDP协议（端口500）来传递消息  
+- IKE协议使用两个数据库：安全关联数据库SADB和安全策略数据库SPDB，这两个数据库都保存在操作系统内核  
+- 可以通过两种方式来启动IKE服务：  
+  - 由内核提交创建IKE SA请求  
+  - 同级IKE守护进程提交协商SA请求  
+
+- SPDB在每个条目中隐藏有指针：无论对于外出IP包还是进入IP包，首先都要对SPDB表进行查询，以决定是否丢弃、绕过或应用IPsec  
+  - IPsec查询SADB，检查是否拥有合适的SA  
+  - 如果有，则进行相应的IPsec处理  
+  - 如果没有，就会向IKE守护进程发出创建SA请求  
+
+- IKE守护进程接收到内核发来的请求后，查询SPDB，得到所有协
+  商参数；然后向远程IKE进程发出协商请求； IKE进程开始协商  
+  - 如果协商成功，把新协商的SA增加到SADB中  
+  - 如果因为SPDB参数问题，协商未成功， IKE进程给策略及SA管理模块提示，由管理员来配置SPDB参数  
+
+- 当管理员指示IKE守护进程不再使用某个SA时， IKE守护进程会从SADB中删除掉相应的记录SA，同时会向远地的IKE守护进程发送删除信息，表示本地已经不再使用此SA了  
+
+### IKE协议总结
+
+![image-20221123205251353](D:\documents\NetWorkSaftyNotes\assets\image-20221123205251353.png)
 
 
 
 
 
+# Lettuce9 SSL-HTTPS-SET
 
-
-
-
-
-
-
-
-
-
-
-
+## 传输层安全协议SSL
 
